@@ -6,8 +6,6 @@ from multiprocessing import Pool
 
 import pandas as pd
 
-# sys.path.append('C:\\users\\tom work\\pycharmprojects\\nyu-twipsy')
-# sys.path.append('C:\\users\\tom work\\documents\\twitterstream\\nyu-twipsy')
 from classification.prediction import PredictionTransformer
 
 
@@ -17,11 +15,8 @@ def predict(args):
     file = args[2]
     # print(file)
     try:
-        df = pd.read_csv(file, engine='python').dropna()
-
-        # predicted = clf(pd.DataFrame(df.ix[:100]))
+        df = pd.read_csv(file).dropna()
         predicted = clf(df)
-
         predicted.to_csv(out_dir + '/' + file.split('/')[-1][:-4] + 'predict.csv')
     except Exception as e:
         print(file)
@@ -42,10 +37,7 @@ def main(argv):
         sys.exit(2)
 
     # run prediction
-    # print(argv)
     s_clf_alc, s_clf_fpa, s_clf_fpl, folder, out_dir, cores = tuple(argv)
-    # print(os.getcwd())
-    # os.chdir(cur_dir)
     cores = int(cores)
     clf_alc = pickle.load(open(s_clf_alc, 'rb'))
     clf_fpa = pickle.load(open(s_clf_fpa, 'rb'))
@@ -56,8 +48,6 @@ def main(argv):
     p = Pool(cores)
     dirs = [(clf, out_dir, folder + '/' + f) for f in os.listdir(folder)]
     p.map(predict, dirs)
-    # for args in dirs:
-    #     predict(args)
 
 if __name__ == "__main__":
     main(sys.argv[1:])

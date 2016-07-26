@@ -1,7 +1,7 @@
 import pandas as pd
 
-class PredictionTransformer:
 
+class PredictionTransformer:
     cols = [
         'predict_alc',
         'predict_fpa',
@@ -26,7 +26,6 @@ class PredictionTransformer:
         self._make_firstpersonlevel_predictions()
 
         return self.df
-
 
     def _make_alcohol_predictions(self):
         predictions_alc = self.clf_alc.predict_proba(self.df)
