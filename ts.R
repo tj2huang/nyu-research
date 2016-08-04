@@ -42,3 +42,12 @@ preprocessing <- function(ts_csv, total_csv){
   return(list(series=df_filled, total=df_total))
 }
 
+split_by_day <- function(ts_month){
+  # ts_month: vector-like of hourly observations over month
+  # returns matrix where cols are "days" and rows are hours
+  days = data.frame(matrix(nrow=24, ncol=1))
+  for (i in 1:(length(ts_month)/24)){
+    days[[i]] = ts_month[((i-1)*24+1):(i*24)]
+  }
+  return(days)
+}
