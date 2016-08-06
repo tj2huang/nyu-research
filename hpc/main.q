@@ -15,12 +15,9 @@ mkdir -p $RUNDIR/
 cp -r $SRCDIR $RUNDIR/
 cd $RUNDIR
 
-# rm -r $RUNDIR/nyu-twipsy/hpc/in/
-# mkdir -p $RUNDIR/nyu-twipsy/hpc/in/
-# cp -r $HOME/sept-blocked/. $RUNDIR/nyu-twipsy/hpc/in
-
 PROJECT=$RUNDIR/nyu-twipsy
-INFOLDER=$SCRATCH/nyu-twipsy/data/june/march/
+INFOLDER=$SCRATCH/nyu-twipsy/data/june/
 
 PYTHONPATH=$PROJECT python3 $PROJECT/hpc/main.py $PROJECT/hpc/classifiers/clf_alc_UPDATED.p $PROJECT/hpc/classifiers/clf_fpa_UPDATED.p $PROJECT/hpc/classifiers/clf_fpl_double_labeled $INFOLDER $PROJECT/hpc/out 16
+PYTHONPATH=$PROJECT python3 $PROJECT/hpc/postprocessing.py $PROJECT/hpc/out $PROJECT/hpc/summary 16
 
