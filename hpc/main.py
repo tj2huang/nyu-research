@@ -16,6 +16,7 @@ def predict(args):
     # print(file)
     try:
         df = pd.read_csv(file).dropna()
+        # df.columns = df.columns[1:].tolist() + ['age']
         predicted = clf(df)
         predicted.to_csv(out_dir + '/' + file.split('/')[-1][:-4] + 'predict.csv')
     except Exception as e:
@@ -37,16 +38,17 @@ def main(argv):
         sys.exit(2)
 
     # run prediction
-    s_clf_alc, s_clf_fpa, s_clf_fpl, folder, out_dir, cores = tuple(argv)
+    infolder, out_dir, cores = tuple(argv)
     cores = int(cores)
-    clf_alc = pickle.load(open(s_clf_alc, 'rb'))
-    clf_fpa = pickle.load(open(s_clf_fpa, 'rb'))
-    clf_fpl = pickle.load(open(s_clf_fpl, 'rb'))
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    clf_alc = pickle.load(open(dir_path + '/classifiers/clf_alc_UPDATED.p', 'rb'))
+    clf_fpa = pickle.load(open(dir_path + '/classifiers/clf_fpa_UPDATED.p', 'rb'))
+    clf_fpl = pickle.load(open(dir_path + '/classifiers/clf_fpl_double_labeled', 'rb'))
     clf = PredictionTransformer(clf_alc, clf_fpa, clf_fpl)
 
     # parallel
     p = Pool(cores)
-    dirs = [(clf, out_dir, folder + '/' + f) for f in os.listdir(folder)]
+    dirs = [(clf, out_dir, infolder + '/' + f) for f in os.listdir(infolder)]
     p.map(predict, dirs)
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 import mysql.connector
 import pandas as pd
 
-from __private import dc_sql_connect
+from __private import dc_sql_connect, dc_sql_connect_rds
 
 TWEETS_TABLE = 'uploaded_tweets'
 PREDICTION_TABLE = 'predictions'
@@ -10,9 +10,31 @@ LABEL_TABLE = 'labels'
 
 class DataAccess:
     def __init__(self):
-        self.con = mysql.connector.connect(**dc_sql_connect)
+        self.con = mysql.connector.connect(**dc_sql_connect_rds)
         self.cur = self.con.cursor()
         self.cur.execute('SET NAMES utf8mb4')
+
+    def insert_tweets_csv(self, csv_file):
+        df = pd.read_csv(csv_file)
+
+        # format
+        _columns = ['text', 'id', 'created_at', 'lat', 'lon', 'utc_offset', 'predict_id', 'label_id']
+        df2 = pd.DataFrame(columns= _columns)
+        for col in df.columns:
+            df2[col] = df[col]
+
+        query_vars = dict()
+        for index, row in df.iterrows():
+            for key in _columns:
+                query_vars[key] = str(row[key]) if key in df else 'NULL'
+            try:
+                self.cur.execute('''INSERT INTO {} (text, tweet_id, date, lat, lon)
+                     VALUES (%s,%s,%s,%s,%s)'''.format(TWEETS_TABLE), params=tuple([query_vars[key] for key in _columns]))
+                self.con.commit()
+
+            except mysql.connector.Error as e:
+                print(e)
+                self.con.rollback()
 
     def insert_from_df(self, df):
         """
@@ -143,3 +165,11 @@ class DataAccess:
             except mysql.connector.Error as e:
                 print(e)
                 self.con.rollback()
+
+if __name__ == '__main__':
+    data = DataAccess()
+    print('go')
+    # self.cur.execute('''CREATE TABLE tweets (
+    #     date DATETIME, tweet_id VARCHAR(20), text VARCHAR(1000), lat VARCHAR(20), lon VARCHAR(20),
+    #     label_id INT, predict_id INT);
+    #     ''')

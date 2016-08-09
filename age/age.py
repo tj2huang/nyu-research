@@ -6,8 +6,10 @@ import re
 import os
 import nltk
 import pickle
+import sys
 
 from sklearn import svm
+import pandas as pd
 
 stopWords = []
 
@@ -164,44 +166,72 @@ def setup():
 
 def predict(classifier, featureList, in_file, out_loc):
     file_name = in_file.split('/')[-1]
-    with open(out_loc + '/' + 'under21_' + file_name[:-4] + '.csv', 'w', encoding='utf-8') as under:
-        with open(out_loc + '/' + 'over21_' + file_name[:-4]+ '.csv', 'w', encoding='utf-8') as over:
-            out_under = csv.writer(under, delimiter=',')
-            out_over = csv.writer(over, delimiter=',')
-            with open(in_file, 'r', encoding='utf-8') as out:
-                testTweets = csv.reader(out, delimiter=',')
-                count = 0
-                lineno = 0
-                text_pos = 0
+    df = pd.read_csv(in_file)
 
-                for fields in testTweets:
-                    lineno += 1
-                    if lineno == 1: # Skip the header line.
-                        out_under.writerow(fields)
-                        out_over.writerow(fields)
-                        text_pos = fields.index('text')
-                    #fields = line.split(';')
-                    if len(fields)== 0:
-                        continue
-                    try:
-                        tweet = fields[text_pos]
+    def predict_tweet(tweet):
+        tTweets = []
+        processedTweet = processTweet(tweet)
+        featureVector = getFeatureVector(processedTweet)
+        # featureList.extend(featureVector)
+        tTweets.append((featureVector, 0))
 
-                        tTweets = []
-                        processedTweet = processTweet(tweet)
-                        featureVector = getFeatureVector(processedTweet)
-                        #featureList.extend(featureVector)
-                        tTweets.append((featureVector, 0))
+        # Test the classifier
+        test_feature_vector = getSVMFeatureVectorAndLabels(tTweets, featureList)
+        # p_labels contains the final labeling result
+        p_labels = classifier.predict(test_feature_vector['feature_vector'])
+        return str(p_labels)
 
-                        #Test the classifier
-                        test_feature_vector = getSVMFeatureVectorAndLabels(tTweets, featureList)
-                        #p_labels contains the final labeling result
-                        p_labels = classifier.predict(test_feature_vector['feature_vector'])
+    df['age'] = df[df.predict_fpa > 0.75].text.apply(predict_tweet)
+    df.to_csv(out_loc + '/' + 'under21_' + file_name[:-4] + '.csv')
 
-                        #print (fields[1],fields[2],fields[3],fields[4],p_labels)
-                        if p_labels == [0]:
-                            out_under.writerow([fields[0],fields[1],fields[2],fields[3],fields[4],p_labels])
-                            count += 1
-                        else:
-                            out_over.writerow([fields[0], fields[1], fields[2], fields[3], fields[4], p_labels])
-                    except Exception as e:
-                        pass
+    # with open(out_loc + '/' + 'under21_' + file_name[:-4] + '.csv', 'w', encoding='utf-8') as under:
+    #     with open(out_loc + '/' + 'over21_' + file_name[:-4]+ '.csv', 'w', encoding='utf-8') as over:
+    #         out_under = csv.writer(under, delimiter=',')
+    #         out_over = csv.writer(over, delimiter=',')
+    #         with open(in_file, 'r', encoding='utf-8') as out:
+    #             testTweets = csv.reader(out, delimiter=',')
+    #             count = 0
+    #             lineno = 0
+    #             text_pos = 0
+    #
+    #             for fields in testTweets:
+    #                 lineno += 1
+    #                 if lineno == 1: # Skip the header line.
+    #                     out_under.writerow(fields)
+    #                     out_over.writerow(fields)
+    #                     text_pos = fields.index('text')
+    #                 #fields = line.split(';')
+    #                 if len(fields)== 0:
+    #                     continue
+    #                 try:
+    #                     tweet = fields[text_pos]
+    #
+    #                     tTweets = []
+    #                     processedTweet = processTweet(tweet)
+    #                     featureVector = getFeatureVector(processedTweet)
+    #                     #featureList.extend(featureVector)
+    #                     tTweets.append((featureVector, 0))
+    #
+    #                     #Test the classifier
+    #                     test_feature_vector = getSVMFeatureVectorAndLabels(tTweets, featureList)
+    #                     #p_labels contains the final labeling result
+    #                     p_labels = classifier.predict(test_feature_vector['feature_vector'])
+    #
+    #                     #print (fields[1],fields[2],fields[3],fields[4],p_labels)
+    #                     if p_labels == [0]:
+    #                         out_under.writerow([fields[0],fields[1],fields[2],fields[3],fields[4],p_labels])
+    #                         count += 1
+    #                     else:
+    #                         out_over.writerow([fields[0], fields[1], fields[2], fields[3], fields[4], p_labels])
+    #                 except Exception as e:
+    #                     pass
+
+if __name__ == '__main__':
+
+    # in_file, out_loc
+    args = sys.argv[1:]
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    clf = pickle.load(open(dir_path + '/age_svm.p', 'rb'))
+    features = pickle.load(open(dir_path + '/feature_list.p', 'rb'))
+    infile, outdir = args
+    predict(clf, features, infile, outdir)
