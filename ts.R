@@ -80,6 +80,10 @@ phase_dist <- function(freq){
   
 }
 
+normalize <- function(ts){
+  return(ts/norm(ts, type='2'))
+}
+
 dissimilarity <- function(m_ts, f){
   # calc dissimilarity matrix of list of time series given a distance function
   n = ncol(m_ts)
