@@ -20,6 +20,22 @@ time_index <- function(df){
   return (merged)
 }
 
+june_ts <- function(){
+  june_cas = ts(preprocessing('E:/summary/june_casual.csv', 'E:/summary/june_total.csv')$series[33:(672+32)], frequency=24)
+  june_tot = ts(preprocessing('E:/summary/june_casual.csv', 'E:/summary/june_total.csv')$total[33:(672+32)], frequency=24)
+  return (june_cas/june_tot)
+}
+
+sept_ts <- function(){
+  sept_cas = ts(preprocessing('E:/summary/sept_casual.csv', 'E:/summary/sept_total.csv')$series[9:680], frequency=24)
+  sept_tot = ts(preprocessing('E:/summary/sept_casual.csv', 'E:/summary/sept_total.csv')$total[9:680], frequency=24)
+  return(sept_cas/sept_tot)
+}
+
+# difference by week, log
+stationary <- function(ts){
+  return (diff(log(ts),  168))
+}
 
 preprocessing <- function(ts_csv, total_csv){
   
@@ -50,4 +66,45 @@ split_by_day <- function(ts_month){
     days[[i]] = ts_month[((i-1)*24+1):(i*24)]
   }
   return(days)
+}
+
+#clustering stuff
+phase_dist <- function(freq){
+  # gives dft phase distance function at a frequency
+  return (function(ts1, ts2){
+    # phase of freq from fft
+    f1 = fft(ts1)[freq+1]
+    f2 = fft(ts2)[freq+1]
+    return (abs(Arg(f1/f2))/(2*pi))
+  })
+  
+}
+
+dissimilarity <- function(m_ts, f){
+  # calc dissimilarity matrix of list of time series given a distance function
+  n = ncol(m_ts)
+  mdiss = matrix(nrow=n, ncol=n)
+  for (i in 1:n){
+    for (j in 1:n){
+      mdiss[i, j] = f(m_ts[,i], m_ts[,j])
+    }
+  }
+  return (mdiss)       
+}
+
+day_of_week <- function(ts){
+  # ts: time series by hour
+  # returns 3d array
+  nweeks = length(ts)/168
+  weekdays = array(NA, dim=c(7, 24, nweeks))
+  for (weekday in 1:7){
+    days=matrix(nrow=24, ncol=nweeks)
+    for (week in 1:nweeks){
+      first_hour = 1+(week-1)*168+(weekday-1)*24
+      weekdays[weekday, , week] =  window(ts, start=first_hour, end=(first_hour+23))
+    }
+    
+  }
+  return (weekdays)
+  
 }
