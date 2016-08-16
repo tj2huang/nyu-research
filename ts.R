@@ -26,6 +26,12 @@ june_ts <- function(){
   return (june_cas/june_tot)
 }
 
+june_w <- function(){
+  june_cas = ts(preprocessing('E:/summary/june_casual.csv', 'E:/summary/june_total.csv')$series[49:(672+48)], frequency=24)
+  june_tot = ts(preprocessing('E:/summary/june_casual.csv', 'E:/summary/june_total.csv')$total[49:(672+48)], frequency=24)
+  return (june_cas/june_tot)
+}
+
 sept_ts <- function(){
   sept_cas = ts(preprocessing('E:/summary/sept_casual.csv', 'E:/summary/sept_total.csv')$series[9:680], frequency=24)
   sept_tot = ts(preprocessing('E:/summary/sept_casual.csv', 'E:/summary/sept_total.csv')$total[9:680], frequency=24)
