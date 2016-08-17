@@ -15,7 +15,7 @@ def predict(args):
     file = args[2]
     # print(file)
     try:
-        df = pd.read_csv(file).dropna()
+        df = pd.read_csv(file, engine='python').dropna()
         # df.columns = df.columns[1:].tolist() + ['age']
         predicted = clf(df)
         predicted.to_csv(out_dir + '/' + file.split('/')[-1][:-4] + 'predict.csv')
