@@ -20,6 +20,14 @@ time_index <- function(df){
   return (merged)
 }
 
+save_png <- function(fn_plot, out_loc){
+  # fn_plot: function with plotting side effect
+  # out_loc: location of png
+  png(filename=out_loc)
+  fn_plot()
+  dev.off()
+}
+
 june_ts <- function(){
   june_cas = ts(preprocessing('E:/summary/june_casual.csv', 'E:/summary/june_total.csv')$series[33:(672+32)], frequency=24)
   june_tot = ts(preprocessing('E:/summary/june_casual.csv', 'E:/summary/june_total.csv')$total[33:(672+32)], frequency=24)
