@@ -20,6 +20,14 @@ time_index <- function(df){
   return (merged)
 }
 
+clust <- function(dist){
+  plot(agnes(dist, diss=TRUE), which.plots=2)
+  med = pam(dist, 2, diss=TRUE)
+  sil = silhouette(med)
+  print(med$cluster)
+  plot(sil)
+}
+
 save_png <- function(fn_plot, out_loc){
   # fn_plot: function with plotting side effect
   # out_loc: location of png
