@@ -59,7 +59,7 @@ stationary <- function(ts){
   return (diff(log(ts),  168))
 }
 
-preprocessing <- function(ts_csv, total_csv){
+preprocessing <- function(ts_csv, total_csv, thres=5000){
   
   # removes rows with low observations and locfs them
   # returns time series and total time series, as a list
@@ -70,7 +70,7 @@ preprocessing <- function(ts_csv, total_csv){
   df = time_index(data.frame(ts))
   df_total = time_index(data.frame(total))
   
-  missing = df_total[,'tweets']<5000
+  missing = df_total[,'tweets']<thres
   print(which(missing))
   df_total[missing, 'tweets'] <- NA
   df[missing,] <-NA

@@ -3,6 +3,8 @@ import getopt
 import os
 from multiprocessing import Pool
 
+from hpc.preprocessing import timezone
+
 import pandas as pd
 
 # sys.path.append('C:\\users\\tom work\\pycharmprojects\\nyu-twipsy')
@@ -23,7 +25,9 @@ def fpl_summary(args):
     try:
         df = pd.read_csv(in_dir, engine='python')
         df.index = pd.to_datetime(df.created_at)
-        df = adjust_timestamp(df)
+        # requires "place" column
+        df = timezone.convert2local(df)
+        # df = adjust_timestamp(df)
         df['casual'] = df.predict_present > 0.6
         df['looking'] = df.predict_future > 0.6
         df['reflecting'] = df.predict_past > 0.6
@@ -45,6 +49,37 @@ def fpl_summary(args):
     except Exception as e:
         print(e)
 
+def all_summary(folder, month, out):
+    casual = pd.DataFrame()
+    looking = pd.DataFrame()
+    reflecting = pd.DataFrame()
+    alc = pd.DataFrame()
+    fpa = pd.DataFrame()
+    for file in os.listdir(folder):
+        try:
+            df = pd.read_csv(folder + '/' + file)
+            prefix = file[:3]
+            if prefix == 'cas':
+                casual = pd.concat([casual, df])
+            elif prefix == 'loo':
+                looking = pd.concat([looking, df])
+            elif prefix == 'ref':
+                reflecting = pd.concat([reflecting, df])
+            elif prefix == 'alc':
+                alc = pd.concat([alc, df])
+            elif prefix == 'fpa':
+                fpa = pd.concat([fpa, df])
+
+        except Exception as e:
+            print(e)
+    def group(df, str_col):
+        df[str_col].groupby([df['Unnamed: 0'], df['Unnamed: 1']]).agg({str_col: sum}).to_csv(out + month +'_' + str_col +'.csv')
+    group(casual, 'casual')
+    group(looking, 'looking')
+    group(reflecting, 'reflecting')
+    group(alc, 'alc')
+    group(fpa, 'fpa')
+    group(casual, 'total')
 
 def main(argv):
     # help option
@@ -72,6 +107,7 @@ def main(argv):
     p.map(fpl_summary, args)
     # for args in dirs:
     #     predict(args)
+    all_summary(out_dir, '/summary', out_dir)
 
 if __name__ == "__main__":
     main(sys.argv[1:])
