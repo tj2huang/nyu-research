@@ -3,6 +3,8 @@ library(forecast)
 library(Rwave)
 library(wmtsa)
 
+PLOT_DIR = '/Users/tom/PycharmProjects/nyu-research/plots'
+
 time_index <- function(df){
   #indexes a dataframe by 30 days and 24 hours
   
