@@ -28,6 +28,7 @@ clust <- function(dist){
   sil = silhouette(med)
   print(med$cluster)
   plot(sil)
+  return(med)
 }
 
 save_png <- function(fn_plot, out_loc){
