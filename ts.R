@@ -1,9 +1,9 @@
 library(zoo)
 library(forecast)
-library(Rwave)
-library(wmtsa)
 
 PLOT_DIR = '/Users/tom/PycharmProjects/nyu-research/plots'
+this.dir <- dirname(parent.frame(2)$ofile)
+setwd(this.dir)
 
 time_index <- function(df){
   #indexes a dataframe by 30 days and 24 hours
@@ -40,8 +40,9 @@ save_png <- function(fn_plot, out_loc){
 }
 
 june_ts <- function(){
-  june_cas = ts(preprocessing('E:/summary/june_casual.csv', 'E:/summary/june_total.csv')$series[33:(672+32)], frequency=24)
-  june_tot = ts(preprocessing('E:/summary/june_casual.csv', 'E:/summary/june_total.csv')$total[33:(672+32)], frequency=24)
+  june = preprocessing('twitter_tsa/data/june/june_casual.csv', 'twitter_tsa/data/june/june_total.csv')
+  june_cas = ts(june$series[33:(672+32)], frequency=24)
+  june_tot = ts(june$total[33:(672+32)], frequency=24)
   return (june_cas/june_tot)
 }
 
@@ -52,9 +53,10 @@ june_w <- function(){
 }
 
 sept_ts <- function(){
-  sept_cas = ts(preprocessing('E:/summary/sept_casual.csv', 'E:/summary/sept_total.csv')$series[9:680], frequency=24)
-  sept_tot = ts(preprocessing('E:/summary/sept_casual.csv', 'E:/summary/sept_total.csv')$total[9:680], frequency=24)
-  return(sept_cas/sept_tot)
+  sept = preprocessing('twitter_tsa/data/september/sept_casual.csv', 'twitter_tsa/data/september/sept_total.csv')
+  sept_cas = ts(sept$series[9:(672+8)], frequency=24)
+  sept_tot = ts(sept$total[9:(672+8)], frequency=24)
+  return (sept_cas/sept_tot)
 }
 
 # difference by week, log

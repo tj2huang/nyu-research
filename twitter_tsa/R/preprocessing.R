@@ -20,7 +20,7 @@ preprocessing <- function(ts_csv, total_csv, thres=5000){
 }
 
 june_ts <- function(){
-  june = preprocessing('../data/june/june_casual.csv', '../data/june/june_total.csv')
+  june = preprocessing('twitter_tsa/data/june_casual.csv', 'twitter_tsa/data/june/june_total.csv')
   june_cas = ts(june$series[33:(672+32)], frequency=24)
   june_tot = ts(june$total[33:(672+32)], frequency=24)
   return (june_cas/june_tot)
