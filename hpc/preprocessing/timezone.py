@@ -1,4 +1,5 @@
 import datetime
+import numpy as np
 
 state2tz= {
  'AK': -9,
@@ -147,7 +148,7 @@ def convert2local(df):
     df["location"] = df.place.astype(str).apply(map2name)
 
     # convert the state to a timedelta object
-    df["tz"] = df.location.apply(map2tz).apply(lambda _: datetime.timedelta(hours=_))
+    df["tz"] = df.location.apply(map2tz).apply(lambda h: datetime.timedelta(hours=np.asscalar(h)))
 
     # modify the index to account for the timedelta
     df['local_time'] = df.index + df["tz"]

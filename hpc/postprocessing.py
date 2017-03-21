@@ -13,7 +13,7 @@ import pandas as pd
 
 def adjust_timestamp(df):
     """
-    df:pd.DataFrame with datetime index and utc_offset columns
+    df: pd.DataFrame with datetime index and utc_offset columns
     """
     us = df[(df.utc_offset <= -14400) & (df.utc_offset >= -28800)]
     us.index = us.index + us.utc_offset.apply(lambda x: pd.to_timedelta(x, unit='s'))
@@ -24,15 +24,17 @@ def fpl_summary(args):
     in_dir, out_dir, file_name = args
     try:
         df = pd.read_csv(in_dir, engine='python')
-        df.index = pd.to_datetime(df.created_at)
+        df.index = pd.to_datetime(df.created_at, errors='coerce')
+        df = df[pd.notnull(df.index)]
         # requires "place" column
         df = timezone.convert2local(df)
+        df.index = df.local_time
         # df = adjust_timestamp(df)
-        df['casual'] = df.predict_present > 0.6
-        df['looking'] = df.predict_future > 0.6
-        df['reflecting'] = df.predict_past > 0.6
-        df['alc'] = df.predict_alc > 0.75
-        df['fpa'] = df.predict_fpa > 0.75
+        df['casual'] = df.predict_present > 0.6 and df.predict_alc > 0.99
+        df['looking'] = df.predict_future > 0.6 and df.predict_alc > 0.99
+        df['reflecting'] = df.predict_past > 0.6 and df.predict_alc > 0.99
+        df['alc'] = df.predict_alc > 0.99
+        df['fpa'] = df.predict_fpa > 0.75 and df.predict_alc > 0.99
 
         df_casual = df.casual.groupby([df.index.day, df.index.hour]).agg({'casual': sum, 'total': len})
         df_looking = df.looking.groupby([df.index.day, df.index.hour]).agg({'looking': sum, 'total': len})
@@ -48,6 +50,7 @@ def fpl_summary(args):
 
     except Exception as e:
         print(e)
+
 
 def all_summary(folder, month, out):
     casual = pd.DataFrame()
@@ -72,6 +75,7 @@ def all_summary(folder, month, out):
 
         except Exception as e:
             print(e)
+
     def group(df, str_col):
         df[str_col].groupby([df['Unnamed: 0'], df['Unnamed: 1']]).agg({str_col: sum}).to_csv(out + month +'_' + str_col +'.csv')
     group(casual, 'casual')
@@ -80,6 +84,7 @@ def all_summary(folder, month, out):
     group(alc, 'alc')
     group(fpa, 'fpa')
     group(casual, 'total')
+
 
 def main(argv):
     # help option
