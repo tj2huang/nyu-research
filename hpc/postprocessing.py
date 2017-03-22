@@ -3,9 +3,9 @@ import getopt
 import os
 from multiprocessing import Pool
 
-from hpc.preprocessing import timezone
-
 import pandas as pd
+
+from hpc.preprocessing import timezone
 
 # sys.path.append('C:\\users\\tom work\\pycharmprojects\\nyu-twipsy')
 # sys.path.append('C:\\users\\tom work\\documents\\twitterstream\\nyu-twipsy')
@@ -21,46 +21,70 @@ def adjust_timestamp(df):
 
 
 def fpl_summary(args):
-    in_dir, out_dir, file_name = args
+    """
+     Generates a csv with total tweet counts by (hour, day), for each class
+    :param args: [in_dir, out_dir, file_name] as a list for a pool parameter
+    :param data_path: path to csv
+    :param out_dir: output directory for file name
+    :param file_name: unique name for output file
+    :return:
+    """
+    data_path, out_dir, file_name = args
     try:
-        df = pd.read_csv(in_dir, engine='python')
+        df = pd.read_csv(data_path, engine='python')
         df.index = pd.to_datetime(df.created_at, errors='coerce')
+
+        # remove rows with invalid datetimes
         df = df[pd.notnull(df.index)]
-        # requires "place" column
+
+        # create local_time column, requires "place" column
         df = timezone.convert2local(df)
         df.index = df.local_time
-        # df = adjust_timestamp(df)
-        df['casual'] = df.predict_present > 0.6 and df.predict_alc > 0.99
-        df['looking'] = df.predict_future > 0.6 and df.predict_alc > 0.99
-        df['reflecting'] = df.predict_past > 0.6 and df.predict_alc > 0.99
+
+        # set prediction thresholds
+        df['casual'] = (df.predict_present > 0.6) & (df.predict_alc > 0.99)
+        df['looking'] = (df.predict_future > 0.6) & (df.predict_alc > 0.99)
+        df['reflecting'] = (df.predict_past > 0.6) & (df.predict_alc > 0.99)
         df['alc'] = df.predict_alc > 0.99
-        df['fpa'] = df.predict_fpa > 0.75 and df.predict_alc > 0.99
+        df['fpa'] = (df.predict_fpa > 0.75) & (df.predict_alc > 0.99)
 
-        df_casual = df.casual.groupby([df.index.day, df.index.hour]).agg({'casual': sum, 'total': len})
-        df_looking = df.looking.groupby([df.index.day, df.index.hour]).agg({'looking': sum, 'total': len})
-        df_reflecting = df.reflecting.groupby([df.index.day, df.index.hour]).agg({'reflecting': sum, 'total': len})
-        df_alc = df.alc.groupby([df.index.day, df.index.hour]).agg({'alc': sum, 'total': len})
-        df_fpa = df.fpa.groupby([df.index.day, df.index.hour]).agg({'fpa': sum, 'total': len})
+        # new index
+        df['hour'] = df.index.hour
+        df['day'] = df.index.day
 
-        df_casual.to_csv(out_dir + '/casual_' + file_name)
-        df_looking.to_csv(out_dir + '/looking_' + file_name)
-        df_reflecting.to_csv(out_dir + '/reflecting_' + file_name)
-        df_alc.to_csv(out_dir + '/alc_' + file_name)
-        df_fpa.to_csv(out_dir + '/fpa_' + file_name)
+        # aggregate counts by day and hour
+        df_summary = df[['casual', 'looking', 'reflecting', 'alc', 'fpa', 'day', 'hour']].groupby(['day', 'hour']).agg([sum, len])
+
+        # output one summary file per column per input data file
+        df_summary.casual.to_csv(out_dir + '/casual_' + file_name)
+        df_summary.looking.to_csv(out_dir + '/looking_' + file_name)
+        df_summary.reflecting.to_csv(out_dir + '/reflecting_' + file_name)
+        df_summary.alc.to_csv(out_dir + '/alc_' + file_name)
+        df_summary.fpa.to_csv(out_dir + '/fpa_' + file_name)
 
     except Exception as e:
         print(e)
 
 
-def all_summary(folder, month, out):
+def all_summary(in_folder, out_dir):
+    """
+    For each class, aggregates the (hour, day) counts across all temporary csvs into one summary file.
+    :param in_folder: directory containing partial summaries of each file from fpl_summary function
+    :param out_dir: directory of final summary (not ending in '/')
+    :return:
+    """
+
     casual = pd.DataFrame()
     looking = pd.DataFrame()
     reflecting = pd.DataFrame()
     alc = pd.DataFrame()
     fpa = pd.DataFrame()
-    for file in os.listdir(folder):
+
+    # append contents of each file into the correct dataframe
+    for file in os.listdir(in_folder):
         try:
-            df = pd.read_csv(folder + '/' + file)
+            df = pd.read_csv(in_folder + '/' + file, index_col=[0, 1])
+
             prefix = file[:3]
             if prefix == 'cas':
                 casual = pd.concat([casual, df])
@@ -76,8 +100,10 @@ def all_summary(folder, month, out):
         except Exception as e:
             print(e)
 
-    def group(df, str_col):
-        df[str_col].groupby([df['Unnamed: 0'], df['Unnamed: 1']]).agg({str_col: sum}).to_csv(out + month +'_' + str_col +'.csv')
+    # group by day, hour, then sum and output to a corresponding csv
+    def group(df, out_name):
+        df.groupby(level=[0, 1]).agg(sum).to_csv(out_dir + '/' + out_name + '.csv')
+
     group(casual, 'casual')
     group(looking, 'looking')
     group(reflecting, 'reflecting')
@@ -99,20 +125,24 @@ def main(argv):
         print('-h for help')
         sys.exit(2)
 
-    # run prediction
-    # print(argv)
-    in_folder, out_dir, cores = tuple(argv)
+    data_folder, out_dir, cores = tuple(argv)
     cores = int(cores)
-    # print(os.getcwd())
-    # os.chdir(cur_dir)
 
     # parallel
     p = Pool(cores)
-    args = [(in_folder + '/' + f, out_dir, 'tweets_' + str(i) + '.csv') for i, f in enumerate(os.listdir(in_folder))]
+
+    # temporary per-data-file aggregation
+    agg_dir = out_dir + '/sum_by_file'
+    if not os.path.exists(agg_dir):
+        os.makedirs(agg_dir)
+    args = [(data_folder + '/' + f, agg_dir, 'agg_' + str(i) + '.csv') for i, f in enumerate(os.listdir(data_folder))]
     p.map(fpl_summary, args)
-    # for args in dirs:
-    #     predict(args)
-    all_summary(out_dir, '/summary', out_dir)
+
+    # combine all the aggreagations into a single file
+    summary_dir = out_dir + '/summary'
+    if not os.path.exists(summary_dir):
+        os.makedirs(summary_dir)
+    all_summary(agg_dir, summary_dir)
 
 if __name__ == "__main__":
     main(sys.argv[1:])

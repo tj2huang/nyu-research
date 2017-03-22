@@ -10,13 +10,19 @@ from classification.prediction import PredictionTransformer
 
 
 def predict(args):
+    """
+    Makes predictions and stores them in csv files
+    :param args: [clf, out_dir, file] as a list as an argument for pool function
+    :param clf: Prediction Transformer object
+    :param out_dir: directory of output to store prediction csvs
+    :param file: csv file to make predictions on
+    :return:
+    """
     clf = args[0]
     out_dir = args[1]
     file = args[2]
-    # print(file)
     try:
         df = pd.read_csv(file, engine='python').dropna()
-        # df.columns = df.columns[1:].tolist() + ['age']
         predicted = clf(df)
         predicted.to_csv(out_dir + '/' + file.split('/')[-1][:-4] + 'predict.csv')
     except Exception as e:
@@ -40,10 +46,12 @@ def main(argv):
     # run prediction
     infolder, out_dir, cores = tuple(argv)
     cores = int(cores)
+
+    # hard coded classifier location, TODO: add as parameter
     dir_path = os.path.dirname(os.path.realpath(__file__))
     clf_alc = pickle.load(open(dir_path + '/classifiers/clf_alc_UPDATED.p', 'rb'))
     clf_fpa = pickle.load(open(dir_path + '/classifiers/clf_fpa_UPDATED.p', 'rb'))
-    clf_fpl = pickle.load(open(dir_path + '/classifiers/clf_fpl_double_labeled', 'rb'))
+    clf_fpl = pickle.load(open(dir_path + '/classifiers/clf_fpl_double_labeled.p', 'rb'))
     clf = PredictionTransformer(clf_alc, clf_fpa, clf_fpl)
 
     # parallel
