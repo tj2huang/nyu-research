@@ -3,6 +3,8 @@ import getopt
 import pickle
 import os
 from multiprocessing import Pool
+import string
+import re
 
 import pandas as pd
 from sklearn.pipeline import Pipeline
@@ -11,7 +13,35 @@ from sklearn.linear_model import LogisticRegression
 import twokenize.twokenize as tokenizer
 
 from pipelines.helpers import ItemGetter
+from tobacco import postprocessing
 
+
+def process_string_for_classification(inputstr):
+    outputstr = inputstr
+    for sym in string.punctuation:
+        if sym in "#@'()\"":
+            continue
+        else:
+            outputstr = outputstr.replace(sym, " ")
+    #repalcing mentions with -mention-
+    outputstr = re.sub('@([A-Za-z0-9_]+)', "-MENTION-", outputstr)
+    output_ascii = []
+    for c in outputstr:
+        if c in string.printable:
+            output_ascii.append(c)
+        else:
+            output_ascii.append(" ")
+            continue
+    output_words =  "".join(output_ascii).split()
+    outputstr = " ".join(output_words)
+    return outputstr
+
+
+def predict_shisha(text):
+    shisha_keywords = ["hooka", "hookas", "hookah", "shisha", "shishas", "sheesha", "sheeshas", "waterpipe", "water pipe", "waterpipes", "water pipes", "narghile", "narghiles", "arghileh", "arghilehs", "hubble bubble", "hubblebubble", "hubbles bubble", "hubbles bubbles", "hubble bubbles"]
+    expression = '|'.join(shisha_keywords)
+    shisha_filter = re.compile(expression)
+    return bool(shisha_filter.search(text.lower()))
 
 def predict(args):
     """
@@ -28,14 +58,16 @@ def predict(args):
     try:
         print(file)
         df = pd.read_csv(file, engine='python').dropna()
+        df.text = df.text.apply(process_string_for_classification)
         predicted = clf(df)
+        predicted['shisha'] = predicted.text.apply(predict_shisha)
         predicted.to_csv(out_dir + '/' + file.split('/')[-1][:-4] + 'predict.csv')
     except Exception as e:
         print(file)
         print(e)
 
 
-def train(tob_data, fp_data, fpl_data):
+def train(tob_data, fp_data, fpl_data, cur_data, com_data):
     def make_classifier():
         clf = Pipeline([
             ("getter", ItemGetter("text")),
@@ -70,17 +102,25 @@ def train(tob_data, fp_data, fpl_data):
     clf_tob = make_classifier()
     clf_fp = make_classifier()
     clf_fpl = make_classifier()
+    clf_cur = make_classifier()
+    clf_com = make_classifier()
 
-    X_tob = pd.read_csv(tob_data, names = ['labels', 'text'])
+    X_tob = pd.read_csv(tob_data, header=0, names = ['labels', 'text'])
     clf_tob = fit_clf(clf_tob, X_tob)
 
-    X_fp = pd.read_csv(fp_data, names = ['labels', 'text'])
+    X_fp = pd.read_csv(fp_data, header=0, names = ['labels', 'text'])
     clf_fp = fit_clf(clf_fp, X_fp)
 
-    X_fpl = pd.read_csv(fpl_data, names = ['labels', 'text'])
+    X_fpl = pd.read_csv(fpl_data, header=0, names = ['labels', 'text'])
     clf_fpl = fit_clf(clf_fpl, X_fpl)
 
-    clf = PredictionTransformer(clf_tob, clf_fp, clf_fpl)
+    X_cur = pd.read_csv(cur_data, header=0, names = ['labels', 'text'])
+    clf_cur = fit_clf(clf_cur, X_cur)
+
+    X_com = pd.read_csv(com_data, header=0,  names=['labels', 'text'])
+    clf_com = fit_clf(clf_com, X_com)
+
+    clf = PredictionTransformer(clf_tob, clf_fp, clf_fpl, clf_cur, clf_com)
     return clf
 
 
@@ -91,10 +131,12 @@ class PredictionTransformer:
         'predict_fp|tob',
     ]
 
-    def __init__(self, clf_tob, clf_fp, clf_fpl):
+    def __init__(self, clf_tob, clf_fp, clf_fpl, clf_cur, clf_com):
         self.clf_tob = clf_tob
         self.clf_fp = clf_fp
         self.clf_fpl = clf_fpl
+        self.clf_cur = clf_cur
+        self.clf_com = clf_com
 
     def __call__(self, df, thres=0.2):
         self.df = df
@@ -105,10 +147,16 @@ class PredictionTransformer:
         self.thres = thres
 
         self._make_tob_predictions()
+        self._make_combined_predictions()
         self._make_firstperson_predictions()
+        self._make_current_predictions()
         self._make_firstpersonlevel_predictions()
 
         return self.df
+
+    def _make_combined_predictions(self):
+        predictions_com = self.clf_com.predict_proba(self.df)
+        self.df["predict_com"] = predictions_com[:,1]
 
     def _make_tob_predictions(self):
         predictions_tob = self.clf_tob.predict_proba(self.df)
@@ -123,6 +171,28 @@ class PredictionTransformer:
 
         # compute a marginal using the product rule
         self.df["predict_fp"] = self.df["predict_tob"] * self.df["predict_fp|tob"]
+
+    def _make_current_predictions(self):
+        filter_tob = self.df.predict_tob > self.thres
+
+        predict_cur = self.clf_cur.predict_proba(self.df[filter_tob])
+
+        # convert it to a named dataframe
+        predict_cur = pd.DataFrame(
+            predict_cur,
+            columns=[
+                "predict_cur|fp",
+                "predict_not_cur|fp"],
+            index=self.df[filter_tob].index)
+
+        marginal_firstperson = self.df[filter_tob]["predict_fp"]
+
+        # for each conditional level generate a marginal
+        for col in predict_cur.columns:
+            col_marginal = col.split("|")[0]
+            predict_cur[col_marginal] = predict_cur[col] * marginal_firstperson
+
+        self.df = self.df.join(predict_cur).fillna(0)
 
     def _make_firstpersonlevel_predictions(self):
         filter_tob = self.df.predict_tob > self.thres
@@ -147,6 +217,7 @@ class PredictionTransformer:
 
         self.df = self.df.join(predict_fpl).fillna(0)
 
+
 def main(argv):
     # help option
     try:
@@ -166,13 +237,14 @@ def main(argv):
 
     # hard coded classifier location, TODO: add as parameter
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    clf_alc = pickle.load(open(dir_path + '/classifiers/tob.p', 'rb'))
-    clf_fpa = pickle.load(open(dir_path + '/classifiers/tob_fp.p', 'rb'))
-    clf_fpl = pickle.load(open(dir_path + '/classifiers/tob_fpl.p', 'rb'))
-    clf = PredictionTransformer(clf_alc, clf_fpa, clf_fpl)
+    # clf_alc = pickle.load(open(dir_path + '/classifiers/tob.p', 'rb'))
+    # clf_fpa = pickle.load(open(dir_path + '/classifiers/tob_fp.p', 'rb'))
+    # clf_fpl = pickle.load(open(dir_path + '/classifiers/tob_fpl.p', 'rb'))
+    # clf = PredictionTransformer(clf_alc, clf_fpa, clf_fpl)
 
-    # clf = train(tob_data=dir_path + '/training_data/tob.csv', fp_data=dir_path + '/training_data/fp.csv',
-    #             fpl_data=dir_path + '/training_data/fpl.csv')
+    clf = train(tob_data=dir_path + '/training-data/tob.csv', fp_data=dir_path + '/training-data/fp.csv',
+                fpl_data=dir_path + '/training-data/present.csv', cur_data= dir_path + '/training-data/current.csv',
+                com_data=dir_path + '/training-data/combined.csv')
 
     print('Training done')
     # parallel
@@ -182,5 +254,11 @@ def main(argv):
 
 if __name__ == "__main__":
     #main(sys.argv[1:])
-    #main(('/Volumes/TOSHIBA EXT/Sept_March_2015/csv with offset/septtransfer/sept blocked', '/Users/tom/Documents/hpc-test/sept-out', 2))
-    main(('/Volumes/TOSHIBA EXT/Sept_March_2015/csv with offset/june-small-offset', '/Users/tom/Documents/hpc-test/out', 2))
+
+    # main(('C:/Users/Tom/Documents/nyu-test/alc-run/june/in', 'C:/Users/Tom/Documents/nyu-test/tob-run/june/out', 2))
+    # postprocessing.main(
+    #     ('C:/Users/Tom/Documents/nyu-test/tob-run/june/out', 'C:/Users/Tom/Documents/nyu-test/tob-run/june/summary', 2))
+
+    # main(('C:/Users/Tom/Documents/nyu-test/alc-run/sept/in', 'C:/Users/Tom/Documents/nyu-test/tob-run/sept/out', 2))
+    postprocessing.main(
+        ('C:/Users/Tom/Documents/nyu-test/tob-run/sept/out', 'C:/Users/Tom/Documents/nyu-test/tob-run/sept/summary', 2))
