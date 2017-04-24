@@ -31,6 +31,7 @@ def fpl_summary(args):
     """
     data_path, out_dir, file_name = args
     try:
+        print(data_path)
         df = pd.read_csv(data_path, engine='python')
         df.index = pd.to_datetime(df.created_at, errors='coerce')
 
@@ -38,15 +39,18 @@ def fpl_summary(args):
         df = df[pd.notnull(df.index)]
 
         # create local_time column, requires "place" column
-        df = timezone.convert2local(df)
-        df.index = df.local_time
+        # df = timezone.convert2local(df)
+        # df.index = df.local_time
+
+        # alternatively use utc offset
+        df = adjust_timestamp(df)
 
         # set prediction thresholds
-        df['casual'] = (df.predict_present > 0.6) & (df.predict_alc > 0.99)
-        df['looking'] = (df.predict_future > 0.6) & (df.predict_alc > 0.99)
-        df['reflecting'] = (df.predict_past > 0.6) & (df.predict_alc > 0.99)
-        df['alc'] = df.predict_alc > 0.99
-        df['fpa'] = (df.predict_fpa > 0.75) & (df.predict_alc > 0.99)
+        df['casual'] = (df.predict_present > 0.6)
+        df['looking'] = (df.predict_future > 0.6)
+        df['reflecting'] = (df.predict_past > 0.6)
+        df['alc'] = df.predict_alc > 0.5
+        df['fpa'] = (df.predict_fpa > 0.75)
 
         # new index
         df['hour'] = df.index.hour
@@ -145,4 +149,5 @@ def main(argv):
     all_summary(agg_dir, summary_dir)
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    # main(sys.argv[1:])
+    main(('C:/Users/Tom/Documents/nyu-test/alc-run/june/out', 'C:/Users/Tom/Documents/nyu-test/alc-run/june/summary-50', 2))

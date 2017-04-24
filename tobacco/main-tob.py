@@ -38,7 +38,7 @@ def process_string_for_classification(inputstr):
 
 
 def predict_shisha(text):
-    shisha_keywords = ["hooka", "hookas", "hookah", "shisha", "shishas", "sheesha", "sheeshas", "waterpipe", "water pipe", "waterpipes", "water pipes", "narghile", "narghiles", "arghileh", "arghilehs", "hubble bubble", "hubblebubble", "hubbles bubble", "hubbles bubbles", "hubble bubbles"]
+    shisha_keywords = ["hooka", "hookas", "hookah", "shisha", "shishas", "sheesha", "sheeshas", "waterpipe", "waterpipes", "water pipes", "narghile", "narghiles", "arghileh", "arghilehs", "hubble bubble", "hubblebubble", "hubbles bubble", "hubbles bubbles", "hubble bubbles"]
     expression = '|'.join(shisha_keywords)
     shisha_filter = re.compile(expression)
     return bool(shisha_filter.search(text.lower()))
@@ -105,20 +105,36 @@ def train(tob_data, fp_data, fpl_data, cur_data, com_data):
     clf_cur = make_classifier()
     clf_com = make_classifier()
 
+    # TODO: HACK TO FIX CLASS LABELS
+    # returns a function that maps negative label to 0, pos to 1
+    def label_fixer(neg, pos):
+        def output(label):
+            if label == neg:
+                return 0
+            return 1
+        return output
+
     X_tob = pd.read_csv(tob_data, header=0, names = ['labels', 'text'])
     clf_tob = fit_clf(clf_tob, X_tob)
+    print(clf_tob.classes_)
 
     X_fp = pd.read_csv(fp_data, header=0, names = ['labels', 'text'])
+    X_fp['labels'] = X_fp['labels'].apply(label_fixer('NOT-1stPerson', '1stPerson'))
     clf_fp = fit_clf(clf_fp, X_fp)
+    print(clf_fp.classes_)
 
     X_fpl = pd.read_csv(fpl_data, header=0, names = ['labels', 'text'])
     clf_fpl = fit_clf(clf_fpl, X_fpl)
+    print(clf_fpl.classes_)
 
     X_cur = pd.read_csv(cur_data, header=0, names = ['labels', 'text'])
+    X_cur['labels'] = X_cur['labels'].apply(label_fixer('not-current', 'current'))
     clf_cur = fit_clf(clf_cur, X_cur)
+    print(clf_cur.classes_)
 
     X_com = pd.read_csv(com_data, header=0,  names=['labels', 'text'])
     clf_com = fit_clf(clf_com, X_com)
+    print(clf_com.classes_)
 
     clf = PredictionTransformer(clf_tob, clf_fp, clf_fpl, clf_cur, clf_com)
     return clf
@@ -166,7 +182,7 @@ class PredictionTransformer:
         filter_tob = self.df.predict_tob > self.thres
 
         # predict only on subset of the data, makes things way faster
-        predict_fp = self.clf_tob.predict_proba(self.df[filter_tob])
+        predict_fp = self.clf_fp.predict_proba(self.df[filter_tob])
         self.df.loc[filter_tob, "predict_fp|tob"] = predict_fp[:,1]
 
         # compute a marginal using the product rule
@@ -180,9 +196,9 @@ class PredictionTransformer:
         # convert it to a named dataframe
         predict_cur = pd.DataFrame(
             predict_cur,
-            columns=[
-                "predict_cur|fp",
-                "predict_not_cur|fp"],
+            columns=["predict_not_cur|fp",
+                "predict_cur|fp"
+                ],
             index=self.df[filter_tob].index)
 
         marginal_firstperson = self.df[filter_tob]["predict_fp"]
@@ -203,9 +219,9 @@ class PredictionTransformer:
         # convert it to a named dataframe
         predict_fpl = pd.DataFrame(
             predict_fpl,
-                 columns=[
-                "predict_present|fp",
-                "predict_not_present|fp"],
+                 columns=["predict_not_present|fp",
+                "predict_present|fp"
+                ],
             index=self.df[filter_tob].index)
 
         marginal_firstperson = self.df[filter_tob]["predict_fp"]
@@ -255,10 +271,10 @@ def main(argv):
 if __name__ == "__main__":
     #main(sys.argv[1:])
 
-    # main(('C:/Users/Tom/Documents/nyu-test/alc-run/june/in', 'C:/Users/Tom/Documents/nyu-test/tob-run/june/out', 2))
-    # postprocessing.main(
-    #     ('C:/Users/Tom/Documents/nyu-test/tob-run/june/out', 'C:/Users/Tom/Documents/nyu-test/tob-run/june/summary', 2))
-
-    # main(('C:/Users/Tom/Documents/nyu-test/alc-run/sept/in', 'C:/Users/Tom/Documents/nyu-test/tob-run/sept/out', 2))
+    # main(('C:/Users/Tom/Documents/nyu-test/alc-run/june/in', 'C:/Users/Tom/Documents/nyu-test/tob-run2/june/out', 2))
     postprocessing.main(
-        ('C:/Users/Tom/Documents/nyu-test/tob-run/sept/out', 'C:/Users/Tom/Documents/nyu-test/tob-run/sept/summary', 2))
+        ('C:/Users/Tom/Documents/nyu-test/tob-run2/june/out', 'C:/Users/Tom/Documents/nyu-test/tob-run2/june/summary-cur', 2))
+
+    # main(('C:/Users/Tom/Documents/nyu-test/alc-run/sept/in', 'C:/Users/Tom/Documents/nyu-test/tob-run2/sept/out', 2))
+    postprocessing.main(
+        ('C:/Users/Tom/Documents/nyu-test/tob-run2/sept/out', 'C:/Users/Tom/Documents/nyu-test/tob-run2/sept/summary-cur', 2))

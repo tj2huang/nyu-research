@@ -49,7 +49,14 @@ def fpl_summary(args):
         df['fp'] = (df.predict_fp > 0.5)
         df['cur'] = df.predict_cur > 0.5
         df['com'] = df.predict_com > 0.5
-        df['psh'] = ((df.predict_present > 0.5) & df.shisha).apply(int)
+        df['psh'] = ((df.predict_cur > 0.5) & df.shisha).apply(int)
+
+        # df['tob'] = df.predict_tob > 0.5
+        # df['fp'] = (df['predict_fp|tob'] > 0.5) & df['tob']
+        # df['present'] = (df['predict_present|fp'] > 0.5) & (df['fp'])
+        # df['cur'] = (df['predict_cur|fp'] > 0.5) & (df['fp'])
+        # df['com'] = df.predict_com > 0.5
+        # df['psh'] = (df['present'] & df.shisha).apply(int)
 
         # new index
         df['hour'] = df.index.hour
@@ -143,7 +150,7 @@ def main(argv):
     agg_dir = out_dir + '/sum_by_file'
     if not os.path.exists(agg_dir):
         os.makedirs(agg_dir)
-    args = [(data_folder + '/' + f, agg_dir, 'agg_' + str(i) + '.csv') for i, f in enumerate(os.listdir(data_folder))]
+    args = [(data_folder + '/' + f, agg_dir, f[:-4]+ 'agg_' + str(i) + '.csv') for i, f in enumerate(os.listdir(data_folder))]
     p.map(fpl_summary, args)
 
     # combine all the aggreagations into a single file

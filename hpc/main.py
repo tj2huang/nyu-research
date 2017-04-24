@@ -7,6 +7,7 @@ from multiprocessing import Pool
 import pandas as pd
 
 from classification.prediction import PredictionTransformer
+from hpc import postprocessing
 
 
 def predict(args):
@@ -22,8 +23,9 @@ def predict(args):
     out_dir = args[1]
     file = args[2]
     try:
+        print(file)
         df = pd.read_csv(file, engine='python').dropna()
-        predicted = clf(df)
+        predicted = clf(df, thres=0.995)
         predicted.to_csv(out_dir + '/' + file.split('/')[-1][:-4] + 'predict.csv')
     except Exception as e:
         print(file)
@@ -49,9 +51,9 @@ def main(argv):
 
     # hard coded classifier location, TODO: add as parameter
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    clf_alc = pickle.load(open(dir_path + '/classifiers/clf_alc_UPDATED.p', 'rb'))
-    clf_fpa = pickle.load(open(dir_path + '/classifiers/clf_fpa_UPDATED.p', 'rb'))
-    clf_fpl = pickle.load(open(dir_path + '/classifiers/clf_fpl_double_labeled.p', 'rb'))
+    clf_alc = pickle.load(open(dir_path + '/classifiers/clf_alc_simple.p', 'rb'))
+    clf_fpa = pickle.load(open(dir_path + '/classifiers/clf_fpa_simple.p', 'rb'))
+    clf_fpl = pickle.load(open(dir_path + '/classifiers/clf_fpl_simple.p', 'rb'))
     clf = PredictionTransformer(clf_alc, clf_fpa, clf_fpl)
 
     # parallel
@@ -60,4 +62,6 @@ def main(argv):
     p.map(predict, dirs)
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    # main(sys.argv[1:])
+    main(('C:/Users/Tom/Documents/nyu-test/alc-run/june/in', 'C:/Users/Tom/Documents/nyu-test/alc-run/june/out', 2))
+    postprocessing.main(('C:/Users/Tom/Documents/nyu-test/alc-run/june/out', 'C:/Users/Tom/Documents/nyu-test/alc-run/june/summary', 2))

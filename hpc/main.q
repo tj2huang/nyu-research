@@ -19,7 +19,7 @@ mkdir -p $RUNDIR/
 mkdir $RUNDIR/out
 mkdir $RUNDIR/summary
 
-#PROJECT=$RUNDIR/nyu-twipsy"
+#PROJECT=$RUNDIR/nyu-twipsy
 PROJECT=$SRCDIR
 INFOLDER=$SCRATCH/nyu-twipsy/data/june-age/under
 
