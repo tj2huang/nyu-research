@@ -57,7 +57,7 @@ def fpl_summary(args):
         df['day'] = df.index.day
 
         # aggregate counts by day and hour
-        df_summary = df[['casual', 'looking', 'reflecting', 'alc', 'fpa', 'day', 'hour']].groupby(['day', 'hour']).agg([sum, len])
+        df_summary = df[['casual', 'looking', 'reflecting', 'alc', 'fpa', 'day', 'hour', 'alc_key']].groupby(['day', 'hour']).agg([sum, len])
 
         # output one summary file per column per input data file
         df_summary.casual.to_csv(out_dir + '/casual_' + file_name)
@@ -65,6 +65,8 @@ def fpl_summary(args):
         df_summary.reflecting.to_csv(out_dir + '/reflecting_' + file_name)
         df_summary.alc.to_csv(out_dir + '/alc_' + file_name)
         df_summary.fpa.to_csv(out_dir + '/fpa_' + file_name)
+
+        df_summary.alc_key.to_csv(out_dir + '/keyalc_' + file_name)
 
     except Exception as e:
         print(e)
@@ -83,6 +85,7 @@ def all_summary(in_folder, out_dir):
     reflecting = pd.DataFrame()
     alc = pd.DataFrame()
     fpa = pd.DataFrame()
+    alc_key = pd.DataFrame()
 
     # append contents of each file into the correct dataframe
     for file in os.listdir(in_folder):
@@ -100,6 +103,8 @@ def all_summary(in_folder, out_dir):
                 alc = pd.concat([alc, df])
             elif prefix == 'fpa':
                 fpa = pd.concat([fpa, df])
+            elif prefix == 'key':
+                alc_key = pd.concat([alc_key, df])
 
         except Exception as e:
             print(e)
@@ -114,6 +119,8 @@ def all_summary(in_folder, out_dir):
     group(alc, 'alc')
     group(fpa, 'fpa')
     group(casual, 'total')
+
+    group(alc_key, 'alc_key')
 
 
 def main(argv):

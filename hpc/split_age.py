@@ -39,7 +39,7 @@ def main(argv):
     # clf, feature_list = setup()
     dir_path = os.path.dirname(os.path.realpath(__file__))
 
-    clf =  pickle.load(open(dir_path+'/age/age_svm.p', 'rb'))
+    clf = pickle.load(open(dir_path+'/age/age_svm.p', 'rb'))
     feature_list = pickle.load(open(dir_path+'/age/feature_list.p', 'rb'))
 
     # parallel

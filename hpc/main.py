@@ -5,9 +5,27 @@ import os
 from multiprocessing import Pool
 
 import pandas as pd
+import numpy as np
 
 from classification.prediction import PredictionTransformer
 from hpc import postprocessing
+
+alc_keywords = ['drink','drinker','drinks','drinking','drank','wine','champgne','alcohol','alcoholics',
+                'alcoholism','beer','beers','bottle','bottles','pint','pints','cocktail','cocktails','bar','brewery',
+                'lounge','pub','liquor','booze','vodka','tequila','gin','ciroc','margarita','margaritas','ale',
+                'whiskey','lager','tipsy','drunk','sober','wasted','pregame','pregaming', 'johnnie walker', 'smirnoff',
+                'hennessy', 'jack daniel\'s', 'bacardi', 'absolut', 'captain morgan', 'chivas regal', 'grey goose',
+                'crown royal', 'ballantine\'s', 'baileys', 'jagermeister']
+
+def prefilter(text):
+    """
+    Keyword matching
+    :param text:
+    :return:
+    """
+    text = str(text).lower()
+    keywords = set(alc_keywords)
+    return bool(set(text.split()).intersection(keywords))
 
 
 def predict(args):
@@ -25,8 +43,12 @@ def predict(args):
     try:
         print(file)
         df = pd.read_csv(file, engine='python').dropna()
-        predicted = clf(df, thres=0.995)
-        predicted.to_csv(out_dir + '/' + file.split('/')[-1][:-4] + 'predict.csv')
+        df['alc_key'] = df.text.apply(prefilter)
+        alc = df[df.alc_key]
+        not_alc = df[np.invert(df.alc_key)]
+        predicted = clf(alc, thres=0.5)
+        merged = not_alc.merge(predicted, how='outer')
+        merged.to_csv(out_dir + '/' + file.split('/')[-1][:-4] + 'predict.csv')
     except Exception as e:
         print(file)
         print(e)
@@ -63,5 +85,5 @@ def main(argv):
 
 if __name__ == "__main__":
     # main(sys.argv[1:])
-    main(('C:/Users/Tom/Documents/nyu-test/alc-run/june/in', 'C:/Users/Tom/Documents/nyu-test/alc-run/june/out', 2))
-    postprocessing.main(('C:/Users/Tom/Documents/nyu-test/alc-run/june/out', 'C:/Users/Tom/Documents/nyu-test/alc-run/june/summary', 2))
+    main(('C:/Users/Tom/Documents/nyu-test/alc-run/sept/in', 'C:/Users/Tom/Documents/nyu-test/alc-run/sept/out', 2))
+    postprocessing.main(('C:/Users/Tom/Documents/nyu-test/alc-run/sept/out', 'C:/Users/Tom/Documents/nyu-test/alc-run/sept/summary-keyword', 2))
